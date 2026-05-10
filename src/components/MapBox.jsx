@@ -673,17 +673,10 @@ export default function MapBox({ isCommand }) {
           }
         }
 
-        // ── heading: point toward next waypoint ─────────────────────────────
-        if (ref.pathQueue.length > 0) {
-          const [wLng, wLat] = ref.pathQueue[0];
-          const dLng = wLng - ref.curLng;
-          const dLat = wLat - ref.curLat;
-          if (Math.abs(dLng) > 1e-6 || Math.abs(dLat) > 1e-6) {
-            const targetHdg = (Math.atan2(dLng, dLat) * 180 / Math.PI + 360) % 360;
-            const dHdg = shortAngleDiff(ref.curHdg, targetHdg);
-            ref.curHdg = Math.abs(dHdg) < 0.2 ? targetHdg : ref.curHdg + dHdg * 6 * dtSec;
-          }
-        }
+        // ── heading: sync with backend heading ─────────────────────────────
+        const targetHdg = ref._lastShip?.heading || 0;
+        const dHdg = shortAngleDiff(ref.curHdg, targetHdg);
+        ref.curHdg = Math.abs(dHdg) < 0.2 ? targetHdg : ref.curHdg + dHdg * 6 * dtSec;
 
         ref.marker.setLngLat([ref.curLng, ref.curLat]).setRotation(ref.curHdg);
         if (ref.popup && ref.popup.isOpen()) ref.popup.setLngLat([ref.curLng, ref.curLat]);
