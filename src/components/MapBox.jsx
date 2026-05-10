@@ -646,8 +646,10 @@ export default function MapBox({ isCommand }) {
         if (!ref.pathQueue || ref.pathQueue.length === 0) return;
 
         // Distance (in degrees) the ship can travel this frame
-        const maxDelta = MAX_DEG_S * dtSec;
-        let budget = maxDelta;
+        const currentSpeedKnots = ref.speed || 0;
+        const currentKmS = (currentSpeedKnots * 1.852) / 3600;
+        const currentDegS = currentKmS / KM_PER_DEG;
+        let budget = currentDegS * dtSec;
 
         // Walk along waypoints, consuming budget
         while (budget > 0 && ref.pathQueue.length > 0) {
