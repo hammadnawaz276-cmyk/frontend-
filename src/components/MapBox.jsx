@@ -84,9 +84,8 @@ if (typeof document !== 'undefined' && !document.getElementById('ship-anim-css')
       0%   { opacity: 0.45; transform: scaleX(1);   }
       100% { opacity: 0;    transform: scaleX(2.2); }
     }
-    .ship-marker:hover .ship-inner { filter: brightness(1.25); }
-    .ship-marker { transition: transform 0.15s ease; }
-    .ship-marker:hover { transform: scale(1.12); }
+    .ship-marker:hover .ship-inner { filter: brightness(1.25); transform: scale(1.12); }
+    .ship-inner { transition: transform 0.15s ease, filter 0.2s; }
     /* Popup fade-in */
     .mapboxgl-popup { animation: popup-fadein 0.18s ease; }
     @keyframes popup-fadein {
@@ -484,12 +483,14 @@ export default function MapBox({ isCommand }) {
             else break;
           }
           const coords = [[shipLng, shipLat], ...pts.slice(pathStart)];
+          if (coords.length < 2) return null;
           return {
             type: 'Feature',
             properties: { id: s.id, color: getStatus(s.status).color },
             geometry: { type: 'LineString', coordinates: coords },
           };
-        }),
+        })
+        .filter(Boolean),
     });
   }, [ships]);
 
@@ -508,7 +509,7 @@ export default function MapBox({ isCommand }) {
         type: 'Feature',
         properties: { id: r.id, color: r.color, selected: r.id === previewRouteId },
         geometry: { type: 'LineString', coordinates: r.path.map(([la, ln]) => [ln, la]) },
-      })),
+      })).filter(f => f.geometry.coordinates.length >= 2),
     });
   }, [routeOptions, previewRouteId]);
 
@@ -550,10 +551,9 @@ export default function MapBox({ isCommand }) {
           className: 'ship-popup', maxWidth: '260px',
         }).setHTML(popupHtml(ship));
 
-        // Spawn ship at first WATER waypoint from route_path, fallback to server pos
-        const firstWaterWp = ship.route_path?.find(([la, ln]) => onWater(la, ln));
-        const spawnLng = firstWaterWp ? firstWaterWp[1] : ship.lng;
-        const spawnLat = firstWaterWp ? firstWaterWp[0] : ship.lat;
+        // Spawn ship exactly at server position to prevent teleporting/missing ships
+        const spawnLng = ship.lng;
+        const spawnLat = ship.lat;
 
         let pinned = false;
         let hideTimer = null;
@@ -609,6 +609,12 @@ export default function MapBox({ isCommand }) {
         };
       } else {
         // ── Subsequent tick: refresh waypoint queue ──────────────────────────
+        // Self-healing: if the marker drifted or teleported too far from the true backend position, snap it back
+        if (Math.abs(ref.curLng - ship.lng) > 0.5 || Math.abs(ref.curLat - ship.lat) > 0.5) {
+          ref.curLng = ship.lng;
+          ref.curLat = ship.lat;
+        }
+
         ref.pathQueue = buildQueue(ref.curLng, ref.curLat);
         ref.speed = ship.speed || 0;
         ref._lastShip = ship;
